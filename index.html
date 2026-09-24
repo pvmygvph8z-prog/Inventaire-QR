@@ -30,20 +30,9 @@
       cursor: pointer;
     }
 
-    .principal {
-      background: #1976d2;
-      color: white;
-    }
-
-    .plus {
-      background: #2e7d32;
-      color: white;
-    }
-
-    .moins {
-      background: #c62828;
-      color: white;
-    }
+    .principal { background: #1976d2; color: white; }
+    .plus { background: #2e7d32; color: white; }
+    .moins { background: #c62828; color: white; }
 
     #reader {
       width: 100%;
@@ -82,203 +71,259 @@
 
 <body>
 
-  <h1>\uD83C\uDF84 Inventaire QR Noël</h1>
+<h1>\uD83C\uDF84 Inventaire QR Noël</h1>
+
+<button class="principal" onclick="demarrerScanner()">
+  \uD83D\uDCF7 Scanner un QR
+</button>
+
+<div id="message">
+  Appuyez sur « Scanner un QR » pour commencer.
+</div>
+
+<div id="reader"></div>
+
+<div id="resultat">
+
+  <h2 id="nomProduit">Produit</h2>
+
+  <div class="id" id="idProduit"></div>
+
+  <div class="stock">
+    Stock compté : <span id="stock">—</span>
+  </div>
+
+  <button class="moins" onclick="modifier(-1)">−1</button>
+  <button class="plus" onclick="modifier(1)">+1</button>
+
+  <br>
+
+  <button class="moins" onclick="modifier(-10)">−10</button>
+  <button class="plus" onclick="modifier(10)">+10</button>
+
+  <br>
 
   <button class="principal" onclick="demarrerScanner()">
-    \uD83D\uDCF7 Scanner un QR
+    \uD83D\uDCF7 Scanner le suivant
   </button>
 
-  <div id="message">
-    Appuyez sur « Scanner un QR » pour commencer.
-  </div>
-
-  <div id="reader"></div>
-
-  <div id="resultat">
-
-    <h2 id="nomProduit">Produit</h2>
-
-    <div class="id" id="idProduit"></div>
-
-    <div class="stock">
-      Stock compté : <span id="stock">—</span>
-    </div>
-
-    <button class="moins" onclick="modifier(-1)">
-      −1
-    </button>
-
-    <button class="plus" onclick="modifier(1)">
-      +1
-    </button>
-
-    <br>
-
-    <button class="moins" onclick="modifier(-10)">
-      −10
-    </button>
-
-    <button class="plus" onclick="modifier(10)">
-      +10
-    </button>
-
-    <br>
-
-    <button class="principal" onclick="demarrerScanner()">
-      \uD83D\uDCF7 Scanner le suivant
-    </button>
-
-  </div>
-
-  <!-- Communication avec Apps Script sans bloquer la caméra -->
-  <iframe
-    id="communication"
-    name="communication"
-    style="display:none;">
-  </iframe>
-
+</div>
 
 <script>
 
-  // IMPORTANT :
-  // Cette adresse est celle de votre Google Apps Script.
-  const APPS_SCRIPT =
-    "https://script.google.com/macros/s/AKfycbxF74HSYXRjBDU9RLlRRYSB6f6ekzHVxf7ldxR0EpflXmDLzGYxiEGZcv8hntp4oap4lA/exec";
+const APPS_SCRIPT =
+"https://script.google.com/macros/s/AKfycbxF74HSYXRjBDU9RLlRRYSB6f6ekzHVxf7ldxR0EpflXmDLzGYxiEGZcv8hntp4oap4lA/exec";
+
+let scanner = null;
+let produit = null;
+let verrouScan = false;
 
 
-  let scanner = null;
-  let produit = null;
-  let verrouScan = false;
+// ================================
+// SCANNER
+// ================================
 
+function demarrerScanner() {
 
-  function demarrerScanner() {
+  document.getElementById("resultat").style.display = "none";
 
-    document.getElementById("resultat").style.display = "none";
+  document.getElementById("message").innerText =
+    "Autorisez la caméra puis présentez un QR code.";
 
-    document.getElementById("message").innerText =
-      "Autorisez la caméra puis présentez un QR code.";
-
-
-    if (scanner) {
-      try {
-        scanner.clear();
-      } catch(e) {}
-    }
-
-
-    scanner = new Html5Qrcode("reader");
-
-
-    scanner.start(
-      { facingMode: "environment" },
-
-      {
-        fps: 10,
-        qrbox: {
-          width: 250,
-          height: 250
-        }
-      },
-
-      function(decodedText) {
-
-        if (verrouScan) return;
-
-        verrouScan = true;
-
-        scanner.stop().then(function() {
-
-          traiterQR(decodedText);
-
-        }).catch(function() {
-
-          traiterQR(decodedText);
-
-        });
-
-      },
-
-      function(errorMessage) {
-        // Les erreurs de lecture normales sont ignorées.
-      }
-
-    ).catch(function(error) {
-
-      document.getElementById("message").innerHTML =
-        "❌ Impossible d'ouvrir la caméra.<br><br>" +
-        "Vérifiez que vous avez autorisé l'accès à la caméra.";
-
-      console.log(error);
-
-    });
+  if (scanner) {
+    try {
+      scanner.clear();
+    } catch(e) {}
   }
 
+  verrouScan = false;
 
-  function traiterQR(id) {
+  scanner = new Html5Qrcode("reader");
 
-    id = String(id).trim();
+  scanner.start(
+    { facingMode: "environment" },
 
-    produit = {
-      id: id,
-      stock: null
-    };
+    {
+      fps: 10,
+      qrbox: {
+        width: 250,
+        height: 250
+      }
+    },
 
-    document.getElementById("idProduit").innerText =
-      "ID : " + id;
+    function(decodedText) {
+
+      if (verrouScan) return;
+
+      verrouScan = true;
+
+      scanner.stop().then(function() {
+        traiterQR(decodedText);
+      }).catch(function() {
+        traiterQR(decodedText);
+      });
+
+    },
+
+    function(errorMessage) {
+      // Erreurs normales de lecture ignorées.
+    }
+
+  ).catch(function(error) {
+
+    document.getElementById("message").innerHTML =
+      "❌ Impossible d'ouvrir la caméra.<br><br>" +
+      "Vérifiez l'autorisation de la caméra.";
+
+    console.log(error);
+  });
+}
+
+
+// ================================
+// LECTURE DU PRODUIT
+// ================================
+
+function traiterQR(id) {
+
+  id = String(id).trim();
+
+  produit = {
+    id: id,
+    stock: null
+  };
+
+  document.getElementById("idProduit").innerText =
+    "ID : " + id;
+
+  document.getElementById("nomProduit").innerText =
+    "Recherche du produit…";
+
+  document.getElementById("stock").innerText =
+    "…";
+
+  document.getElementById("resultat").style.display =
+    "block";
+
+  document.getElementById("message").innerText =
+    "QR détecté : " + id;
+
+  recupererProduit(id);
+}
+
+
+// ================================
+// RÉCUPÉRATION GOOGLE SHEETS
+// ================================
+
+function recupererProduit(id) {
+
+  const callbackName =
+    "qrCallback_" + Date.now();
+
+  window[callbackName] = function(data) {
+
+    delete window[callbackName];
+
+    if (script) {
+      script.remove();
+    }
+
+    if (!data.ok) {
+
+      document.getElementById("nomProduit").innerText =
+        "❌ Produit introuvable";
+
+      document.getElementById("stock").innerText =
+        "—";
+
+      document.getElementById("message").innerText =
+        data.message || "QR inconnu";
+
+      return;
+    }
+
+    produit.stock = Number(data.counted || 0);
 
     document.getElementById("nomProduit").innerText =
-      "Produit " + id;
+      data.name || "Produit";
 
-    document.getElementById("stock").innerText =
-      "—";
-
-    document.getElementById("resultat").style.display =
-      "block";
-
-    document.getElementById("message").innerText =
-      "QR détecté : " + id;
-
-    // Demande à Apps Script de retrouver le produit.
-    const url =
-      APPS_SCRIPT +
-      "?action=get&id=" +
-      encodeURIComponent(id);
-
-    document.getElementById("communication").src = url;
-
-    verrouScan = false;
-  }
-
-
-  function modifier(delta) {
-
-    if (!produit) return;
-
-    const url =
-      APPS_SCRIPT +
-      "?action=change&id=" +
-      encodeURIComponent(produit.id) +
-      "&delta=" +
-      encodeURIComponent(delta);
-
-    document.getElementById("communication").src = url;
-
-    if (produit.stock === null) {
-      produit.stock = 0;
-    }
-
-    produit.stock += delta;
-
-    if (produit.stock < 0) {
-      produit.stock = 0;
-    }
+    document.getElementById("idProduit").innerText =
+      "ID : " + data.id;
 
     document.getElementById("stock").innerText =
       produit.stock;
 
     document.getElementById("message").innerText =
-      "✓ Stock mis à jour";
+      "✓ Produit trouvé";
+  };
+
+  const script = document.createElement("script");
+
+  script.src =
+    APPS_SCRIPT +
+    "?action=get" +
+    "&id=" + encodeURIComponent(id) +
+    "&callback=" + encodeURIComponent(callbackName);
+
+  script.onerror = function() {
+
+    delete window[callbackName];
+
+    document.getElementById("nomProduit").innerText =
+      "❌ Erreur de connexion";
+
+    document.getElementById("message").innerText =
+      "Impossible de contacter Google Sheets.";
+  };
+
+  document.body.appendChild(script);
+}
+
+
+// ================================
+// MODIFICATION DU STOCK
+// ================================
+
+function modifier(delta) {
+
+  if (!produit) return;
+
+  if (produit.stock === null) {
+    produit.stock = 0;
   }
+
+  const nouveauStock =
+    Math.max(0, produit.stock + delta);
+
+  document.getElementById("message").innerText =
+    "Mise à jour…";
+
+  const url =
+    APPS_SCRIPT +
+    "?action=change" +
+    "&id=" + encodeURIComponent(produit.id) +
+    "&delta=" + encodeURIComponent(delta);
+
+  const iframe = document.createElement("iframe");
+
+  iframe.style.display = "none";
+  iframe.src = url;
+
+  document.body.appendChild(iframe);
+
+  produit.stock = nouveauStock;
+
+  document.getElementById("stock").innerText =
+    produit.stock;
+
+  document.getElementById("message").innerText =
+    "✓ Stock mis à jour";
+
+  setTimeout(function() {
+    iframe.remove();
+  }, 3000);
+}
 
 </script>
 
