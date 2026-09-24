@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inventaire QR Noël</title>
+
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f5f5;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 26px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      padding: 14px 20px;
+      margin: 6px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    .principal {
+      background: #1976d2;
+      color: white;
+    }
+
+    .plus {
+      background: #2e7d32;
+      color: white;
+    }
+
+    .moins {
+      background: #c62828;
+      color: white;
+    }
+
+    #reader {
+      width: 100%;
+      max-width: 500px;
+      margin: 20px auto;
+      background: white;
+      border-radius: 15px;
+      overflow: hidden;
+    }
+
+    #resultat {
+      display: none;
+      background: white;
+      border-radius: 15px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+
+    #message {
+      margin: 15px;
+      font-size: 17px;
+    }
+
+    .stock {
+      font-size: 30px;
+      font-weight: bold;
+      margin: 15px;
+    }
+
+    .id {
+      color: #666;
+      font-size: 15px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>\uD83C\uDF84 Inventaire QR Noël</h1>
+
+  <button class="principal" onclick="demarrerScanner()">
+    \uD83D\uDCF7 Scanner un QR
+  </button>
+
+  <div id="message">
+    Appuyez sur « Scanner un QR » pour commencer.
+  </div>
+
+  <div id="reader"></div>
+
+  <div id="resultat">
+
+    <h2 id="nomProduit">Produit</h2>
+
+    <div class="id" id="idProduit"></div>
+
+    <div class="stock">
+      Stock compté : <span id="stock">—</span>
+    </div>
+
+    <button class="moins" onclick="modifier(-1)">
+      −1
+    </button>
+
+    <button class="plus" onclick="modifier(1)">
+      +1
+    </button>
+
+    <br>
+
+    <button class="moins" onclick="modifier(-10)">
+      −10
+    </button>
+
+    <button class="plus" onclick="modifier(10)">
+      +10
+    </button>
+
+    <br>
+
+    <button class="principal" onclick="demarrerScanner()">
+      \uD83D\uDCF7 Scanner le suivant
+    </button>
+
+  </div>
+
+  <!-- Communication avec Apps Script sans bloquer la caméra -->
+  <iframe
+    id="communication"
+    name="communication"
+    style="display:none;">
+  </iframe>
+
+
+<script>
+
+  // IMPORTANT :
+  // Cette adresse est celle de votre Google Apps Script.
+  const APPS_SCRIPT =
+    "https://script.google.com/macros/s/AKfycbxF74HSYXRjBDU9RLlRRYSB6f6ekzHVxf7ldxR0EpflXmDLzGYxiEGZcv8hntp4oap4lA/exec";
+
+
+  let scanner = null;
+  let produit = null;
+  let verrouScan = false;
+
+
+  function demarrerScanner() {
+
+    document.getElementById("resultat").style.display = "none";
+
+    document.getElementById("message").innerText =
+      "Autorisez la caméra puis présentez un QR code.";
+
+
+    if (scanner) {
+      try {
+        scanner.clear();
+      } catch(e) {}
+    }
+
+
+    scanner = new Html5Qrcode("reader");
+
+
+    scanner.start(
+      { facingMode: "environment" },
+
+      {
+        fps: 10,
+        qrbox: {
+          width: 250,
+          height: 250
+        }
+      },
+
+      function(decodedText) {
+
+        if (verrouScan) return;
+
+        verrouScan = true;
+
+        scanner.stop().then(function() {
+
+          traiterQR(decodedText);
+
+        }).catch(function() {
+
+          traiterQR(decodedText);
+
+        });
+
+      },
+
+      function(errorMessage) {
+        // Les erreurs de lecture normales sont ignorées.
+      }
+
+    ).catch(function(error) {
+
+      document.getElementById("message").innerHTML =
+        "❌ Impossible d'ouvrir la caméra.<br><br>" +
+        "Vérifiez que vous avez autorisé l'accès à la caméra.";
+
+      console.log(error);
+
+    });
+  }
+
+
+  function traiterQR(id) {
+
+    id = String(id).trim();
+
+    produit = {
+      id: id,
+      stock: null
+    };
+
+    document.getElementById("idProduit").innerText =
+      "ID : " + id;
+
+    document.getElementById("nomProduit").innerText =
+      "Produit " + id;
+
+    document.getElementById("stock").innerText =
+      "—";
+
+    document.getElementById("resultat").style.display =
+      "block";
+
+    document.getElementById("message").innerText =
+      "QR détecté : " + id;
+
+    // Demande à Apps Script de retrouver le produit.
+    const url =
+      APPS_SCRIPT +
+      "?action=get&id=" +
+      encodeURIComponent(id);
+
+    document.getElementById("communication").src = url;
+
+    verrouScan = false;
+  }
+
+
+  function modifier(delta) {
+
+    if (!produit) return;
+
+    const url =
+      APPS_SCRIPT +
+      "?action=change&id=" +
+      encodeURIComponent(produit.id) +
+      "&delta=" +
+      encodeURIComponent(delta);
+
+    document.getElementById("communication").src = url;
+
+    if (produit.stock === null) {
+      produit.stock = 0;
+    }
+
+    produit.stock += delta;
+
+    if (produit.stock < 0) {
+      produit.stock = 0;
+    }
+
+    document.getElementById("stock").innerText =
+      produit.stock;
+
+    document.getElementById("message").innerText =
+      "✓ Stock mis à jour";
+  }
+
+</script>
+
+</body>
+</html>
