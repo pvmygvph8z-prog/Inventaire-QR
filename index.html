@@ -66,6 +66,30 @@
       color: #666;
       font-size: 15px;
     }
+
+    .saisie {
+      margin: 20px 0;
+    }
+
+    .saisie label {
+      display: block;
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+
+    .saisie input {
+      width: 120px;
+      padding: 12px;
+      font-size: 24px;
+      text-align: center;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+    }
+
+    .enregistrer {
+      background: #1976d2;
+      color: white;
+    }
   </style>
 </head>
 
@@ -93,6 +117,31 @@
     Stock compté : <span id="stock">—</span>
   </div>
 
+  <div class="saisie">
+
+    <label for="stockSaisi">
+      Saisir directement le stock :
+    </label>
+
+    <input
+      type="number"
+      id="stockSaisi"
+      min="0"
+      step="1"
+      inputmode="numeric"
+      placeholder="0"
+    >
+
+    <br>
+
+    <button
+      class="enregistrer"
+      onclick="enregistrerStock()">
+      ✓ Enregistrer
+    </button>
+
+  </div>
+
   <button class="moins" onclick="modifier(-1)">−1</button>
   <button class="plus" onclick="modifier(1)">+1</button>
 
@@ -108,6 +157,7 @@
   </button>
 
 </div>
+
 
 <script>
 
@@ -202,6 +252,8 @@ function traiterQR(id) {
   document.getElementById("stock").innerText =
     "…";
 
+  document.getElementById("stockSaisi").value = "";
+
   document.getElementById("resultat").style.display =
     "block";
 
@@ -254,6 +306,9 @@ function recupererProduit(id) {
     document.getElementById("stock").innerText =
       produit.stock;
 
+    document.getElementById("stockSaisi").value =
+      produit.stock;
+
     document.getElementById("message").innerText =
       "✓ Produit trouvé";
   };
@@ -282,7 +337,67 @@ function recupererProduit(id) {
 
 
 // ================================
-// MODIFICATION DU STOCK
+// SAISIE DIRECTE DU STOCK
+// ================================
+
+function enregistrerStock() {
+
+  if (!produit) return;
+
+  const champ =
+    document.getElementById("stockSaisi");
+
+  const valeur =
+    Number(champ.value);
+
+  if (
+    champ.value === "" ||
+    !Number.isInteger(valeur) ||
+    valeur < 0
+  ) {
+
+    document.getElementById("message").innerText =
+      "❌ Entrez un nombre entier positif.";
+
+    return;
+  }
+
+  document.getElementById("message").innerText =
+    "Enregistrement…";
+
+  const url =
+    APPS_SCRIPT +
+    "?action=set" +
+    "&id=" + encodeURIComponent(produit.id) +
+    "&quantity=" + encodeURIComponent(valeur);
+
+  const iframe =
+    document.createElement("iframe");
+
+  iframe.style.display = "none";
+  iframe.src = url;
+
+  document.body.appendChild(iframe);
+
+  produit.stock = valeur;
+
+  document.getElementById("stock").innerText =
+    valeur;
+
+  document.getElementById("stockSaisi").value =
+    valeur;
+
+  document.getElementById("message").innerText =
+    "✓ Stock enregistré";
+
+  setTimeout(function() {
+    iframe.remove();
+  }, 3000);
+}
+
+
+// ================================
+// MODIFIER +1 / -1 / +10 / -10
 // ================================
 
 function modifier(delta) {
@@ -305,7 +420,8 @@ function modifier(delta) {
     "&id=" + encodeURIComponent(produit.id) +
     "&delta=" + encodeURIComponent(delta);
 
-  const iframe = document.createElement("iframe");
+  const iframe =
+    document.createElement("iframe");
 
   iframe.style.display = "none";
   iframe.src = url;
@@ -315,6 +431,9 @@ function modifier(delta) {
   produit.stock = nouveauStock;
 
   document.getElementById("stock").innerText =
+    produit.stock;
+
+  document.getElementById("stockSaisi").value =
     produit.stock;
 
   document.getElementById("message").innerText =
